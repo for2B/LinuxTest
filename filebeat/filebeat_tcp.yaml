@@ -1,0 +1,62 @@
+kind: List
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: filebeat-tcp-config
+  data:
+    filebeat.yml: |
+      filebeat.inputs:
+      - type: tcp
+        max_maessage_size: 10MiB
+        host: "0.0.0.0:9000"
+        fields:
+          doc_type: tcp
+      output.logstash:
+        hosts: ["logstash:5044"]
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: filebeat-tcp
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: filebeat-tcp
+    template:
+      metadata:
+        name: filebeat-tcp
+        labels:
+          app: filebeat-tcp
+      spec:
+        containers:
+        - image: ish2b/filebeat:7.2.0
+          name: filebeat-tcp
+          args: [
+           "-c","/home/filebeat-config/filebeat.yml",
+           "-e",
+          ]
+          ports:
+          - name: tcp-port
+            containerPort: 9000
+          volumeMounts:
+          - name: filebeat-tcp-config
+            mountPath: /home/filebeat-config
+        volumes:
+          - name: filebeat-tcp-config
+            configMap:
+              name: filebeat-tcp-config
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: filebeat-tcp
+  spec:
+    type: NodePort
+    ports:
+    - name: tcp-port
+      port: 9000
+      targetPort: 9000
+      nodePort: 30900
+    selector:
+      app: filebeat-tcp

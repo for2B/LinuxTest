@@ -1,0 +1,46 @@
+kind: List
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: elk-kb-rc
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: elk-kb
+    template:
+      metadata:
+        name: elk-kb-ct
+        labels:
+          app: elk-kb
+      spec:
+        containers:
+        - image: ish2b/kibana:7.2.0
+          name: kibana
+          env:
+          - name: ELASTICSEARCH_URL
+            value: "es-svc:9200"
+          - name: I18N_LOCALE
+            value: "zh-CN"
+          - name: ELASTICSEARCH_USERNAME
+            value: "elastic"
+          - name: ELASTICSEARCH_PASSWORD
+            value: "iv@test"
+          ports:
+          - name: kb-ct-port
+            containerPort: 5601
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: elk-kb-svc
+  spec:
+   type: NodePort
+   ports:
+   - name: kb-svc-port
+     port: 5601
+     targetPort: 5601
+     nodePort: 30600
+   selector:
+     app: elk-kb

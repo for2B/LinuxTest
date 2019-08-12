@@ -1,0 +1,53 @@
+kind: List
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: filebeat-config
+  data:
+    filebeat.yml: |
+      filebeat.inputs:
+      - type: log
+        paths:
+          - /home/log/*/*
+        scan_frequency: 10s
+        fields:
+          doc_type: syslog
+      output.logstash:
+        hosts: ["52.81.54.233:30044"]
+- apiVersion: apps/v1
+  kind: DaemonSet
+  metadata:
+    name: elk-fb-rc
+    labels: 
+      app: filebeat-daemonset
+  spec:
+    selector:
+      matchLabels:
+        app: filebeat
+    template:
+      metadata:
+        name: filebeat
+        labels:
+          app: filebeat
+      spec:
+        containers:
+        - image: docker.elastic.co/beats/filebeat:7.2.0
+          name: filebeat
+          args: [
+           "-c","/home/filebeat-config/filebeat.yml",
+           "-e",
+          ]
+          volumeMounts:
+          - name: web-log
+            mountPath: /home/log
+          - name: filebeat-config
+            mountPath: /home/filebeat-config
+        volumes:
+          - name: web-log
+            hostPath:
+              path: /home/log
+          - name: filebeat-config
+            configMap:
+              name: filebeat-config

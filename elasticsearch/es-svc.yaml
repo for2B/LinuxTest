@@ -1,0 +1,39 @@
+kind: List
+apiVersion: v1
+items: 
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: elasticsearch
+    labels:
+      app: elasticsearch
+  spec:
+    clusterIP: None
+    ports:
+    - name: api-port
+      port: 9200
+    - name: node-port
+      port: 9300
+    selector:
+      app: elasticsearch
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: es-svc
+    labels:
+      app: elasticsearch
+  spec:
+    type: NodePort
+    ports:
+    - name: es-api
+      port: 9200
+      targetPort: 9200
+      nodePort: 30200
+    - name: es-node
+      port: 9300
+      targetPort: 30300
+    selector:
+      app: elasticsearch
+
+
+

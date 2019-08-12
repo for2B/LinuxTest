@@ -1,0 +1,126 @@
+kind: List
+apiVersion: v1
+items: 
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: logstash-conf
+  data:
+    logstash.conf: |
+      input {
+        beats {
+          port => "5044"
+        }
+      }
+      filter {
+        if [fields][doc_type] == 'web' {
+          grok {
+            match => { "message" => "%{COMBINEDAPACHELOG}"}
+          }
+          geoip {
+            source => "clientip"
+          }
+        }
+        if [fields][doc_type] == 'order' {
+          grok {
+            match => {  "message"=> "%{TIMESTAMP_ISO8601:timestamp} %{LOGLEVEL:level} %{JAVALOGMESSAGE:msg}" }
+          }
+        }
+        if [fields][doc_type] == 'syslog' {
+          json {
+            source => "message"
+          }
+        }
+      }
+      output {
+        stdout { codec => rubydebug }
+        if [fields][doc_type] == 'web'{
+          elasticsearch {
+                  hosts => ["es-svc:9200"]
+                  index => "web-%{+YYYY.MM.dd}"
+                  user => "logstash_internal"
+                  password => "iv@test"
+          }
+        }
+
+        if [fields][doc_type] == 'order'{
+          elasticsearch {
+                  hosts => ["es-svc:9200"]
+                  index => "order-%{+YYYY.MM.dd}"
+                  user => "logstash_internal"
+                  password => "iv@test"
+         }
+       }
+        if [fields][doc_type] == 'syslog'{
+          elasticsearch {
+                hosts => ["es-svc:9200"]
+                index => "syslog-%{+YYYY.MM.dd}"
+                user => "logstash_internal"
+                password => "iv@test"
+                }
+        }
+      }
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: elk-ls-rc
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: logstash
+    template:
+      metadata:
+        name: logstash
+        labels:
+          app: logstash
+      spec:
+        containers:
+        - image: ish2b/logstash:7.2.0
+          name: logstash
+          env: 
+          - name: xpack.monitoring.enabled
+            value: "true"
+          - name: xpack.monitoring.elasticsearch.hosts
+            value: "es-svc:9200" 
+          - name: xpack.monitoring.elasticsearch.username
+            value: "logstash_system"
+          - name: xpack.monitoring.elasticsearch.password
+            value: "iv@test"
+          volumeMounts:
+          - name: logstash-config
+            mountPath: /usr/share/logstash/pipeline
+          ports:
+          - name: http
+            containerPort: 5044
+        volumes:
+          - name: logstash-config
+            configMap:
+              name: logstash-conf
+              items:
+              - key: logstash.conf
+                path: logstash.conf
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: elk-ls-nodeport
+  spec:
+    type: NodePort
+    ports:
+    - name: http
+      port: 5044
+      targetPort: 5044
+      nodePort: 30044
+    selector:
+      app: logstash
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: logstash
+  spec:
+    clusterIP: None
+    ports:
+    - name: http
+      port: 5044
+    selector:
+      app: logstash

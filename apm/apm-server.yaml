@@ -1,0 +1,50 @@
+kind: List
+apiVersion: v1
+items: 
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata: 
+    name: apm-server
+  spec: 
+    replicas: 1
+    selector: 
+      matchLabels: 
+        app: apm-server
+    template: 
+      metadata: 
+        name: apm-server
+        labels: 
+          app: apm-server
+      spec: 
+        containers: 
+        - image: ish2b/apm-server:7.2.0
+          name: apm-server
+          ports: 
+          - name: apm-server-port
+            containerPort: 8200
+          volumeMounts: 
+          - name: apm-server
+            mountPath: /usr/share/apm-server/apm-server.yml
+            subPath: apm-server.yml
+        volumes: 
+          - name: apm-server
+            configMap: 
+              name: apm-server.yml
+              items: 
+              - key: apm-server.yml
+                path: apm-server.yml
+- apiVersion: v1
+  kind: Service
+  metadata: 
+    name: apm-server
+    labels: 
+      app: apm-server
+  spec: 
+    type: NodePort
+    ports: 
+    - name: apm-server-port
+      port: 8200
+      targetPort: 8200
+      nodePort: 30820
+    selector: 
+      app: apm-server

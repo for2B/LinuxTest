@@ -1,0 +1,119 @@
+kind: List
+apiVersion: v1
+items:
+- apiVersion: apps/v1beta1
+  kind: StatefulSet
+  metadata:
+    name: elasticsearch
+  spec:
+    serviceName: "elasticsearch"
+    replicas: 2
+    template:
+      metadata:
+        labels:
+          app: elasticsearch
+      spec:
+        containers:
+        - name: elasticsearch
+          image: ish2b/elasticsearch:7.2.0
+          resources: 
+            requests: 
+              memory: "17000Mi"
+          env:
+          - name: cluster.name
+            value: "es-cluster"
+          - name: node.name
+            value: "${HOSTNAME}"
+          - name: node.master
+            value: "true"
+          - name: node.data
+            value: "true"
+          - name: network.host
+            value: "0.0.0.0"
+          - name: ES_JAVA_OPTS
+            value: "-Xms16g -Xmx16g"
+          - name: discovery.seed_hosts
+            value: "elasticsearch-0.elasticsearch:9300,elasticsearch-1.elasticsearch:9300"
+          - name: cluster.initial_master_nodes
+            value: "elasticsearch-0"
+          - name: xpack.security.enabled 
+            value: "true"
+          - name: xpack.security.transport.ssl.enabled
+            value: "true"
+          - name: xpack.security.transport.ssl.verification_mode
+            value: "certificate"
+          - name: xpack.security.transport.ssl.keystore.path
+            value: "/usr/share/elasticsearch/config/elastic-certificates.p12"
+          - name: xpack.security.transport.ssl.truststore.path
+            value: "/usr/share/elasticsearch/config/elastic-certificates.p12"
+          ports:
+          - name: api-port
+            containerPort: 9200
+          - name: node-port
+            containerPort: 9300
+         # 挂载数据到本地
+          volumeMounts: 
+          - name: es-data
+            mountPath: /usr/share/elasticsearch/data
+          - name: es-log
+            mountPath: /usr/share/elasticsearch/logs
+          - name: es-log4j2
+            mountPath: /usr/share/elasticsearch/config/log4j2.properties
+            subPath: log4j2.properties
+          - name: es-cert
+            mountPath: /usr/share/elasticsearch/config/elastic-certificates.p12
+            subPath: elastic-certificates.p12
+        volumes: 
+          - name: es-data
+            hostPath: 
+              path: /var/lib/elasticsearch/data
+          - name: es-log
+            hostPath: 
+              path: /var/log/elasticsearch/logs
+          - name: es-cert
+            configMap: 
+              name: es-cert
+              items: 
+              - key: elastic-certificates.p12
+                path: elastic-certificates.p12
+                mode: 0777
+          - name: es-log4j2
+            configMap: 
+              name: log4j2.properties
+              items: 
+              - key: log4j2.properties
+                path: log4j2.properties
+                mode: 0777
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: elasticsearch
+    labels:
+      app: elasticsearch
+  spec:
+    clusterIP: None
+    ports:
+    - name: api-port
+      port: 9200
+    - name: node-port
+      port: 9300
+    selector:
+      app: elasticsearch
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: es-svc
+    labels:
+      app: elasticsearch
+  spec:
+    type: NodePort
+    ports:
+    - name: es-api
+      port: 9200
+      targetPort: 9200
+      nodePort: 30200
+    - name: es-node
+      port: 9300
+      targetPort: 30300
+    selector:
+      app: elasticsearch               

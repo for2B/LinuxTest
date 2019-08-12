@@ -1,0 +1,107 @@
+kind: List
+apiVersion: v1
+items: 
+- apiVersion: extensions/v1beta1 
+  kind: Deployment
+  metadata: 
+    name: elasticsearch-0
+  spec: 
+    serviceName: "elasticsearch"
+    replicas: 1
+    template: 
+      metadata: 
+        labels: 
+          app: elasticsearch
+        name: elasticsearch-0
+      spec: 
+        nodeSelector: 
+          k8s: master
+        containers: 
+        - name: elasticsearch
+          image: ish2b/elasticsearch:7.2.0
+          env:
+          - name: cluster.name
+            value: "es-cluster"
+          - name: node.name
+            value: "${HOSTNAME}"
+          - name: node.master
+            value: "true"
+          - name: node.data
+            value: "true"
+          - name: network.host
+            value: "0.0.0.0"
+          - name: ES_JAVA_OPTS
+            value: "-Xms8g -Xmx8g"
+          - name: discovery.seed_hosts
+            value: "elasticsearch-0.elasticsearch:9300,elasticsearch-1.elasticsearch:9300"
+          - name: cluster.initial_master_nodes
+            value: "elasticsearch-0"
+          ports: 
+          - name: api-port
+            containerPort: 9200
+          - name: node-port 
+            containerPort: 9300
+          volumeMounts:
+          - name: es-data
+            mountPath: /usr/share/elasticsearch/data
+          - name: es-log
+            mountPath: /usr/share/elasticsearch/logs
+        volumes:
+          - name: es-data
+            hostPath:
+              path: /var/lib/elasticsearch/data
+          - name: es-log
+            hostPath:
+              path: /var/log/elasticsearch/logs
+- apiVersion: extensions/v1beta1
+  kind: Deployment
+  metadata:
+    name: elasticsearch-1
+  spec:
+    serviceName: "elasticsearch"
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          app: elasticsearch
+        name: elasticsearch-1
+      spec:
+        nodeSelector:
+          k8s: node
+        containers:
+        - name: elasticsearch
+          image: ish2b/elasticsearch:7.2.0
+          env:
+          - name: cluster.name
+            value: "es-cluster"
+          - name: node.name
+            value: "${HOSTNAME}"
+          - name: node.master
+            value: "true"
+          - name: node.data
+            value: "true"
+          - name: network.host
+            value: "0.0.0.0"
+          - name: ES_JAVA_OPTS
+            value: "-Xms8g -Xmx8g"
+          - name: discovery.seed_hosts
+            value: "elasticsearch-0.elasticsearch:9300,elasticsearch-1.elasticsearch:9300"
+          - name: cluster.initial_master_nodes
+            value: "elasticsearch-0"
+          ports:
+          - name: api-port
+            containerPort: 9200
+          - name: node-port
+            containerPort: 9300
+          volumeMounts:
+          - name: es-data
+            mountPath: /usr/share/elasticsearch/data
+          - name: es-log
+            mountPath: /usr/share/elasticsearch/logs
+        volumes:
+          - name: es-data
+            hostPath:
+              path: /var/lib/elasticsearch/data
+          - name: es-log
+            hostPath:
+              path: /var/log/elasticsearch/logs
